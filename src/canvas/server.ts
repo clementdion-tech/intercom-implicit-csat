@@ -64,6 +64,7 @@ canvasRouter.post('/initialize', async (req: Request, res: Response) => {
         keySignalSummary: existing.keySignalSummary ?? '',
         churnRisk: existing.churnRisk ?? 'none',
         churnSignals: (existing.churnSignals?.split(',') ?? []),
+        confidence: existing.confidence ?? 0.7,
         burstCount: existing.burstCount ?? 0,
         burstInterpretation: '',
         lengthTrajectory: 'stable',
