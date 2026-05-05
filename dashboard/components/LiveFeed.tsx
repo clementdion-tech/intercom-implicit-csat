@@ -29,7 +29,7 @@ export default function LiveFeed() {
             href={`${apiUrl.replace('/api', '')}/app/inbox/all/conversations/${e.intercomId}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-750 hover:bg-slate-700 transition-colors text-sm group"
+            className="flex items-center gap-3 p-2.5 rounded-lg bg-slate-700/50 hover:bg-slate-700 transition-colors text-sm group"
           >
             <span className="text-base">{langFlag(e.language)}</span>
             <span className={`badge text-white text-xs font-bold`} style={{ background: scoreColor(e.scorePct) }}>

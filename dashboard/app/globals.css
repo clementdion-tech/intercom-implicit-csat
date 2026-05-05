@@ -24,7 +24,7 @@ body {
     @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
   }
   .table-row {
-    @apply border-b border-slate-700 hover:bg-slate-750 transition-colors;
+    @apply border-b border-slate-700 hover:bg-slate-700/50 transition-colors;
   }
   .nav-link {
     @apply flex items-center gap-2 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors text-sm font-medium;

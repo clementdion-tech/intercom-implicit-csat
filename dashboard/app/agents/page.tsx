@@ -30,7 +30,7 @@ export default async function AgentsPage() {
             </thead>
             <tbody>
               {agents.map(agent => (
-                <tr key={agent.agentId} className="border-b border-slate-700 hover:bg-slate-750">
+                <tr key={agent.agentId} className="border-b border-slate-700 hover:bg-slate-700/50">
                   <td className="py-3 pr-4 font-mono text-xs text-slate-300">{agent.agentId}</td>
                   <td className="py-3 pr-4 text-slate-300">{agent.conversationCount}</td>
                   <td className="py-3 pr-4">

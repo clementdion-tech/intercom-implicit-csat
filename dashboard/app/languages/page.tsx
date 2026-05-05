@@ -29,7 +29,7 @@ export default async function LanguagesPage() {
             </thead>
             <tbody>
               {languages.map(lang => (
-                <tr key={lang.language} className="border-b border-slate-700 hover:bg-slate-750">
+                <tr key={lang.language} className="border-b border-slate-700 hover:bg-slate-700/50">
                   <td className="py-3 pr-4">
                     <span className="flex items-center gap-2">
                       <span className="text-xl">{langFlag(lang.language)}</span>
