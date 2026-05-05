@@ -1,0 +1,35 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0f172a;
+  --foreground: #e2e8f0;
+}
+
+body {
+  background-color: #0f172a;
+  color: #e2e8f0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+@layer components {
+  .card {
+    @apply bg-slate-800 border border-slate-700 rounded-xl p-5;
+  }
+  .kpi-card {
+    @apply bg-slate-800 border border-slate-700 rounded-xl p-4;
+  }
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium;
+  }
+  .table-row {
+    @apply border-b border-slate-700 hover:bg-slate-750 transition-colors;
+  }
+  .nav-link {
+    @apply flex items-center gap-2 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors text-sm font-medium;
+  }
+  .nav-link-active {
+    @apply flex items-center gap-2 px-3 py-2 rounded-lg text-white bg-slate-700 text-sm font-medium;
+  }
+}
