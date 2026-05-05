@@ -1,4 +1,4 @@
-import { getCulturalProfile } from '../../config/cultural-calibration';
+import { getCulturalProfile } from '../config/cultural-calibration';
 
 export interface LanguageDetectionResult {
   primary: string;

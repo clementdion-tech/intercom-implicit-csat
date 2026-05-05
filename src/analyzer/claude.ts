@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { extractPreSignals } from './signals';
 import { detectBursts, calculateBurstPenalty, interpretBursts } from './burst-detector';
 import { normalizeClaudeResponse, ScoredConversation } from './scorer';
-import { getCulturalProfile } from '../../config/cultural-calibration';
+import { getCulturalProfile } from '../config/cultural-calibration';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 

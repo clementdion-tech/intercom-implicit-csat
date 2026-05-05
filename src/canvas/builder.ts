@@ -1,5 +1,5 @@
 import { ScoredConversation } from '../analyzer/scorer';
-import { getLanguageFlag } from '../../config/cultural-calibration';
+import { getLanguageFlag } from '../config/cultural-calibration';
 
 // Intercom Canvas Kit component builder
 // Returns a Canvas JSON object per the Canvas Kit spec
