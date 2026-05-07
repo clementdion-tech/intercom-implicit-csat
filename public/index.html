@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Implicit CSAT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #080a0f;
+      --surface: #0f1117;
+      --surface2: #161923;
+      --border: rgba(255,255,255,0.06);
+      --border2: rgba(255,255,255,0.1);
+      --text: #f0f2f7;
+      --text-muted: #5a6275;
+      --text-secondary: #8892a4;
+      --green: #10b981;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --orange: #f97316;
+      --blue: #3b82f6;
+      --purple: #8b5cf6;
+      --indigo: #6366f1;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Header ── */
+    header {
+      position: sticky; top: 0; z-index: 20;
+      height: 52px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(8,10,15,0.85);
+      backdrop-filter: blur(16px);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 28px;
+    }
+
+    .logo {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 14px; font-weight: 600; letter-spacing: -0.2px;
+    }
+
+    .logo-mark {
+      width: 26px; height: 26px; border-radius: 7px;
+      background: linear-gradient(135deg, var(--indigo) 0%, var(--purple) 100%);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; line-height: 1;
+    }
+
+    .header-right {
+      display: flex; align-items: center; gap: 16px;
+    }
+
+    .live-pill {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; color: var(--text-muted);
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      padding: 4px 10px; border-radius: 20px;
+    }
+
+    .live-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--green);
+      animation: breathe 2.4s ease-in-out infinite;
+    }
+
+    @keyframes breathe {
+      0%,100% { opacity:1; transform:scale(1); }
+      50% { opacity:.4; transform:scale(.8); }
+    }
+
+    /* ── Layout ── */
+    main {
+      max-width: 1080px; margin: 0 auto;
+      padding: 28px 20px 48px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+
+    /* ── NES Hero ── */
+    .nes-card {
+      background: var(--surface);
+      border: 1px solid var(--border2);
+      border-radius: 16px;
+      padding: 36px 36px 28px;
+      position: relative; overflow: hidden;
+    }
+
+    .nes-card::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 60% 50% at 70% 20%, rgba(99,102,241,0.07), transparent);
+      pointer-events: none;
+    }
+
+    .nes-eyebrow {
+      font-size: 10.5px; font-weight: 600; letter-spacing: .1em;
+      text-transform: uppercase; color: var(--indigo);
+      margin-bottom: 16px;
+      display: flex; align-items: center; gap: 7px;
+    }
+
+    .nes-eyebrow::before {
+      content: ''; width: 16px; height: 2px;
+      background: var(--indigo); border-radius: 1px;
+    }
+
+    .nes-body {
+      display: flex; align-items: flex-start;
+      gap: 32px; flex-wrap: wrap;
+      margin-bottom: 28px;
+    }
+
+    .nes-score-wrap { flex-shrink: 0; }
+
+    .nes-score {
+      font-size: 88px; font-weight: 900;
+      line-height: 1; letter-spacing: -5px;
+      transition: color .4s ease;
+    }
+    .nes-score.positive { color: var(--green); }
+    .nes-score.warning  { color: var(--yellow); }
+    .nes-score.negative { color: var(--red); }
+    .nes-score.empty    { color: var(--text-muted); }
+
+    .nes-info { padding-top: 6px; }
+
+    .nes-title {
+      font-size: 20px; font-weight: 700; letter-spacing: -.4px;
+      color: var(--text); margin-bottom: 6px;
+    }
+
+    .nes-desc {
+      font-size: 13px; color: var(--text-secondary); line-height: 1.55;
+      max-width: 340px;
+    }
+
+    .nes-total {
+      display: inline-flex; align-items: center; gap: 5px;
+      margin-top: 12px; padding: 5px 10px; border-radius: 6px;
+      background: rgba(255,255,255,0.04); border: 1px solid var(--border);
+      font-size: 11px; color: var(--text-muted);
+    }
+
+    /* Segment bar */
+    .seg-track {
+      height: 10px; border-radius: 5px;
+      display: flex; gap: 3px; overflow: hidden;
+      margin-bottom: 14px;
+    }
+
+    .seg-e { background: var(--green);  transition: width .7s cubic-bezier(.4,0,.2,1); }
+    .seg-n { background: #1e2535;       transition: width .7s cubic-bezier(.4,0,.2,1); }
+    .seg-u { background: var(--red);    transition: width .7s cubic-bezier(.4,0,.2,1); }
+
+    .seg-row {
+      display: flex; gap: 0; flex-wrap: wrap;
+    }
+
+    .seg-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 16px 8px 0;
+      border-right: 1px solid var(--border);
+      margin-right: 16px;
+    }
+    .seg-item:last-child { border-right: none; margin-right: 0; }
+
+    .seg-swatch {
+      width: 9px; height: 9px; border-radius: 2px; flex-shrink: 0;
+    }
+
+    .seg-name { font-size: 12px; color: var(--text-secondary); }
+
+    .seg-pct {
+      font-size: 13px; font-weight: 600;
+      color: var(--text); margin-left: 4px;
+    }
+
+    .seg-count { font-size: 11px; color: var(--text-muted); margin-left: 2px; }
+
+    .nes-footnote {
+      margin-top: 20px; padding-top: 16px;
+      border-top: 1px solid var(--border);
+      font-size: 10.5px; color: var(--text-muted); letter-spacing: .01em;
+    }
+
+    /* ── KPI grid ── */
+    .kpi-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .kpi {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px 20px 16px;
+      display: flex; flex-direction: column; gap: 0;
+    }
+
+    .kpi-label {
+      font-size: 10.5px; font-weight: 500;
+      text-transform: uppercase; letter-spacing: .07em;
+      color: var(--text-muted); margin-bottom: 10px;
+    }
+
+    .kpi-val {
+      font-size: 30px; font-weight: 700;
+      letter-spacing: -1.2px; line-height: 1; color: var(--text);
+    }
+
+    .kpi-sub {
+      font-size: 11px; color: var(--text-muted); margin-top: 5px;
+    }
+
+    /* ── Two-column row ── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* ── Card shared ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 22px 22px 18px;
+    }
+
+    .card-head {
+      font-size: 12px; font-weight: 600;
+      color: var(--text); margin-bottom: 18px;
+    }
+
+    /* Distribution */
+    .dist-row {
+      display: flex; align-items: center;
+      gap: 10px; margin-bottom: 9px;
+    }
+
+    .dist-label {
+      width: 118px; font-size: 11.5px;
+      color: var(--text-secondary); flex-shrink: 0;
+    }
+
+    .dist-track {
+      flex: 1; height: 5px;
+      background: var(--surface2); border-radius: 3px; overflow: hidden;
+    }
+
+    .dist-fill { height: 100%; border-radius: 3px; transition: width .7s ease; }
+
+    .dist-pct {
+      width: 32px; text-align: right;
+      font-size: 11.5px; font-weight: 500;
+      color: var(--text); flex-shrink: 0;
+    }
+
+    /* Style breakdown */
+    .style-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 7px 0; border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+    .style-row:last-child { border-bottom: none; }
+    .style-name { color: var(--text-secondary); }
+    .style-badge {
+      font-size: 10.5px; font-weight: 600; padding: 2px 7px;
+      border-radius: 4px; background: var(--surface2);
+      color: var(--text-muted);
+    }
+
+    /* Empty state */
+    .empty {
+      text-align: center; padding: 32px 0;
+      font-size: 13px; color: var(--text-muted);
+    }
+
+    /* Responsive */
+    @media (max-width: 680px) {
+      .kpi-row  { grid-template-columns: repeat(2,1fr); }
+      .two-col  { grid-template-columns: 1fr; }
+      .nes-score { font-size: 64px; }
+      .nes-card  { padding: 24px 20px 20px; }
+      header     { padding: 0 16px; }
+      main       { padding: 20px 12px 40px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">✦</div>
+    Implicit CSAT
+  </div>
+  <div class="header-right">
+    <div class="live-pill">
+      <div class="live-dot"></div>
+      <span id="ts">Live</span>
+    </div>
+  </div>
+</header>
+
+<main>
+
+  <!-- NES Hero -->
+  <div class="nes-card">
+    <div class="nes-eyebrow">Net Empathic Score</div>
+
+    <div class="nes-body">
+      <div class="nes-score-wrap">
+        <div class="nes-score empty" id="nes-num">—</div>
+      </div>
+      <div class="nes-info">
+        <div class="nes-title">Agent Empathy Quality</div>
+        <div class="nes-desc">How empathetically your agents responded, measured across every scored conversation. Like NPS but for empathy.</div>
+        <div class="nes-total" id="nes-total">Loading…</div>
+      </div>
+    </div>
+
+    <div class="seg-track">
+      <div class="seg-e" id="s-e" style="width:0%"></div>
+      <div class="seg-n" id="s-n" style="width:0%"></div>
+      <div class="seg-u" id="s-u" style="width:0%"></div>
+    </div>
+
+    <div class="seg-row">
+      <div class="seg-item">
+        <div class="seg-swatch" style="background:#10b981"></div>
+        <span class="seg-name">Empathetic</span>
+        <span class="seg-pct" id="p-e">—</span>
+        <span class="seg-count" id="c-e"></span>
+      </div>
+      <div class="seg-item">
+        <div class="seg-swatch" style="background:#1e2535"></div>
+        <span class="seg-name">Neutral</span>
+        <span class="seg-pct" id="p-n">—</span>
+        <span class="seg-count" id="c-n"></span>
+      </div>
+      <div class="seg-item">
+        <div class="seg-swatch" style="background:#ef4444"></div>
+        <span class="seg-name">Unempathetic</span>
+        <span class="seg-pct" id="p-u">—</span>
+        <span class="seg-count" id="c-u"></span>
+      </div>
+    </div>
+
+    <div class="nes-footnote">
+      Empathetic ≥70 &nbsp;·&nbsp; Unempathetic &lt;40 &nbsp;·&nbsp; NES = %Empathetic − %Unempathetic &nbsp;·&nbsp; Range −100 to +100
+    </div>
+  </div>
+
+  <!-- KPI row -->
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-label">Avg CSAT</div>
+      <div class="kpi-val" id="k-avg">—</div>
+      <div class="kpi-sub">implicit score (0–100)</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Coverage</div>
+      <div class="kpi-val" id="k-cov">—</div>
+      <div class="kpi-sub" id="k-cov-sub">conversations scored</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Avg Empathy</div>
+      <div class="kpi-val" id="k-emp">—</div>
+      <div class="kpi-sub">agent empathy / 100</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Churn Risk</div>
+      <div class="kpi-val" id="k-churn" style="color:#ef4444">—</div>
+      <div class="kpi-sub">high-risk open tickets</div>
+    </div>
+  </div>
+
+  <!-- Distribution + Styles -->
+  <div class="two-col">
+    <div class="card">
+      <div class="card-head">Score Distribution</div>
+      <div id="dist"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">Communication Styles</div>
+      <div id="styles"></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const DIST = [
+  { key:'very_dissatisfied', label:'Very Dissatisfied', color:'#ef4444' },
+  { key:'dissatisfied',      label:'Dissatisfied',      color:'#f97316' },
+  { key:'neutral',           label:'Neutral',           color:'#6b7280' },
+  { key:'satisfied',         label:'Satisfied',         color:'#3b82f6' },
+  { key:'very_satisfied',    label:'Very Satisfied',    color:'#10b981' },
+];
+
+const STYLE_LABELS = {
+  passive_aggressive:    'Passive-Aggressive',
+  direct_aggressive:     'Direct-Aggressive',
+  anxious_urgent:        'Anxious / Urgent',
+  disengaged_resigned:   'Disengaged',
+  genuinely_positive:    'Genuinely Positive',
+  neutral_transactional: 'Transactional',
+};
+
+function n(v, s='') { return v == null ? '—' : v + s; }
+
+function nesClass(v) {
+  if (v == null) return 'empty';
+  if (v >= 30)  return 'positive';
+  if (v >= 0)   return 'warning';
+  return 'negative';
+}
+
+async function load() {
+  try {
+    const [nes, ov, dist, styles] = await Promise.all([
+      fetch('/api/dashboard/nes').then(r=>r.json()).catch(()=>({})),
+      fetch('/api/dashboard/overview').then(r=>r.json()).catch(()=>({})),
+      fetch('/api/dashboard/distribution').then(r=>r.json()).catch(()=>({})),
+      fetch('/api/dashboard/styles').then(r=>r.json()).catch(()=>({})),
+    ]);
+
+    // ── NES ──
+    const score = nes.nes ?? null;
+    const el = document.getElementById('nes-num');
+    el.textContent = score == null ? 'N/A' : (score >= 0 ? '+' : '') + score;
+    el.className = 'nes-score ' + nesClass(score);
+
+    document.getElementById('nes-total').textContent =
+      nes.total ? `${nes.total.toLocaleString()} conversation${nes.total===1?'':'s'} scored · avg empathy ${n(nes.avgEmpathyScore)}/100` : 'No data yet — run a batch first';
+
+    const ep = nes.empatheticPct??0, np = nes.neutralPct??0, up = nes.unempatheticPct??0;
+    document.getElementById('s-e').style.width = ep + '%';
+    document.getElementById('s-n').style.width = np + '%';
+    document.getElementById('s-u').style.width = up + '%';
+    document.getElementById('p-e').textContent = ep + '%';
+    document.getElementById('p-n').textContent = np + '%';
+    document.getElementById('p-u').textContent = up + '%';
+    document.getElementById('c-e').textContent = nes.empathetic ? `(${nes.empathetic})` : '';
+    document.getElementById('c-n').textContent = nes.neutral    ? `(${nes.neutral})`    : '';
+    document.getElementById('c-u').textContent = nes.unempathetic ? `(${nes.unempathetic})` : '';
+
+    // ── KPIs ──
+    document.getElementById('k-avg').textContent   = n(ov.avgScorePct, '%');
+    document.getElementById('k-cov').textContent   = n(ov.coveragePct, '%');
+    document.getElementById('k-emp').textContent   = n(nes.avgEmpathyScore);
+    document.getElementById('k-churn').textContent = n(ov.churnRiskHigh);
+    document.getElementById('k-cov-sub').textContent =
+      ov.totalConversations ? `${(ov.scoredConversations||0).toLocaleString()} / ${ov.totalConversations.toLocaleString()}` : 'conversations scored';
+
+    // ── Distribution ──
+    const dc = document.getElementById('dist');
+    dc.innerHTML = '';
+    const bands = dist.distribution || [];
+    if (!bands.length) { dc.innerHTML = '<div class="empty">No data yet</div>'; }
+    else {
+      DIST.forEach(cfg => {
+        const b = bands.find(d => d.label === cfg.key) || { pct:0 };
+        dc.insertAdjacentHTML('beforeend', `
+          <div class="dist-row">
+            <div class="dist-label">${cfg.label}</div>
+            <div class="dist-track"><div class="dist-fill" style="width:${b.pct}%;background:${cfg.color}"></div></div>
+            <div class="dist-pct">${b.pct}%</div>
+          </div>`);
+      });
+    }
+
+    // ── Styles ──
+    const sc = document.getElementById('styles');
+    sc.innerHTML = '';
+    const styleList = (styles.styles || []).slice(0, 6);
+    if (!styleList.length) { sc.innerHTML = '<div class="empty">No data yet</div>'; }
+    else {
+      styleList.forEach(s => {
+        sc.insertAdjacentHTML('beforeend', `
+          <div class="style-row">
+            <span class="style-name">${STYLE_LABELS[s.style] || s.style}</span>
+            <span class="style-badge">${s.count} · avg ${s.avgScorePct}%</span>
+          </div>`);
+      });
+    }
+
+    // ── Timestamp ──
+    document.getElementById('ts').textContent =
+      'Updated ' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+
+  } catch(e) {
+    document.getElementById('ts').textContent = 'Error';
+  }
+}
+
+load();
+setInterval(load, 30000);
+</script>
+</body>
+</html>

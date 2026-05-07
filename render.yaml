@@ -26,12 +26,3 @@ services:
       - key: NODE_ENV
         value: production
 
-  - type: web
-    name: intercom-csat-dashboard
-    env: static
-    rootDir: dashboard
-    buildCommand: npm install && npm run build
-    staticPublishPath: out
-    envVars:
-      - key: NEXT_PUBLIC_API_URL
-        sync: false

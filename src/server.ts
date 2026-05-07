@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import crypto from 'crypto';
+import path from 'path';
 import express from 'express';
 import cors from 'cors';
 import http from 'http';
@@ -27,6 +28,9 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
 });
 app.use('/api', apiLimiter);
+
+// Static dashboard (served at /)
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Routes
 app.use('/api', analyticsRouter);
