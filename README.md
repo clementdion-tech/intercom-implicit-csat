@@ -42,7 +42,7 @@ All scores are percentages (0–100%):
 ## Stack
 
 - **Backend**: Node.js / TypeScript / Express
-- **AI**: Claude claude-opus-4-5 (deep linguistic analysis)
+- **AI**: Claude claude-sonnet-4-6 (deep linguistic analysis)
 - **Database**: PostgreSQL via Supabase + Prisma ORM
 - **Dashboard**: Next.js 14 + Tailwind CSS + Recharts
 - **Deployment**: Render (backend + dashboard) + Supabase (database)

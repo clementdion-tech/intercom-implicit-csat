@@ -409,6 +409,38 @@ analyticsRouter.post('/alerts/config', async (req: Request, res: Response) => {
   res.json({ ok: true, config: req.body });
 });
 
+// GET /api/dashboard/nes
+analyticsRouter.get('/dashboard/nes', async (_req: Request, res: Response) => {
+  try {
+    const conversations = await prisma.conversation.findMany({
+      where: { agentEmpathyScore: { not: null } },
+      select: { agentEmpathyScore: true, agentEmpathyLabel: true },
+    });
+
+    const total = conversations.length;
+    if (total === 0) {
+      return res.json({ nes: null, empathetic: 0, neutral: 0, unempathetic: 0, total: 0, empatheticPct: 0, neutralPct: 0, unempatheticPct: 0, avgEmpathyScore: null });
+    }
+
+    const empathetic = conversations.filter(c => (c.agentEmpathyScore ?? 0) >= 70).length;
+    const unempathetic = conversations.filter(c => (c.agentEmpathyScore ?? 0) < 40).length;
+    const neutral = total - empathetic - unempathetic;
+
+    const empatheticPct = Math.round((empathetic / total) * 100);
+    const unempatheticPct = Math.round((unempathetic / total) * 100);
+    const neutralPct = 100 - empatheticPct - unempatheticPct;
+    const nes = empatheticPct - unempatheticPct;
+
+    const avgEmpathyScore = Math.round(
+      conversations.reduce((s, c) => s + (c.agentEmpathyScore ?? 0), 0) / total
+    );
+
+    res.json({ nes, empathetic, neutral, unempathetic, total, empatheticPct, neutralPct, unempatheticPct, avgEmpathyScore });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load NES' });
+  }
+});
+
 function getMostCommon(arr: string[]): string | undefined {
   const counts = arr.reduce<Record<string, number>>((acc, v) => {
     acc[v] = (acc[v] ?? 0) + 1;

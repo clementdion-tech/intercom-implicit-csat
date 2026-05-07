@@ -3,6 +3,8 @@ import { extractPreSignals } from './signals';
 import { detectBursts, calculateBurstPenalty, interpretBursts } from './burst-detector';
 import { normalizeClaudeResponse, ScoredConversation } from './scorer';
 import { getCulturalProfile } from '../config/cultural-calibration';
+import { analyzeVader } from './vader';
+import { analyzeEmotions } from './emotion';
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -40,6 +42,29 @@ Communication styles to classify:
 - disengaged_resigned: monosyllabic replies, declining length, "I'll figure it out myself"
 - genuinely_positive: unprompted praise, humor, personal details, warmth
 - neutral_transactional: professional, task-focused, no strong sentiment signals
+
+Agent empathy signals to detect (in agent/bot messages only):
+- acknowledged_frustration: agent explicitly recognized customer distress ("I understand this is frustrating")
+- validated_emotion: agent normalized the customer's emotional response
+- personalized_response: agent used customer name or referenced their specific situation
+- de_escalation: agent actively lowered emotional temperature
+- proactive_followup: agent offered next steps or follow-up unprompted
+- genuine_apology: sincere apology (not just "sorry for the inconvenience")
+- active_listening: agent reflected back or summarized customer's issue accurately
+
+Missed opportunity signals:
+- generic_closing: "Is there anything else I can help you with today?" without personalization
+- no_empathy_opening: jumped straight to solution without acknowledgment
+- dismissive_language: minimized customer concern
+- blame_shift: implied fault on customer side
+- robotic_tone: clearly templated/scripted, no human warmth
+
+Agent empathy scoring:
+- 80-100: Multiple strong empathy signals, felt heard and valued
+- 60-79: Some acknowledgment but inconsistent
+- 40-59: Technically helpful but emotionally neutral
+- 20-39: Mostly transactional, missed obvious empathy opportunities
+- 0-19: Dismissive or tone-deaf responses
 
 Respond ONLY with a valid JSON object using this exact structure (no markdown, no explanation):
 {
@@ -96,6 +121,12 @@ Respond ONLY with a valid JSON object using this exact structure (no markdown, n
     "key_signal_summary": "one sentence summary of dominant signals driving the score",
     "churn_risk": "high",
     "churn_signals": ["disengagement_pattern", "unresolved_repeat_contact"]
+  },
+  "agent_empathy": {
+    "score_pct": 72,
+    "signals": ["acknowledged_frustration", "validated_emotion", "personalized_response", "de_escalation", "proactive_followup"],
+    "missed_opportunities": ["generic_closing", "no_empathy_opening"],
+    "summary": "Agent validated customer frustration but used a generic closing with no follow-through offer"
   }
 }`;
 
@@ -119,6 +150,10 @@ export async function analyzeConversation(
   const burstPenalty = calculateBurstPenalty(bursts);
   const burstInterpretation = interpretBursts(bursts);
 
+  const indexedMessages = messages.map((m, i) => ({ role: m.role, body: m.body, index: i }));
+  const vader = analyzeVader(indexedMessages);
+  const emotions = analyzeEmotions(indexedMessages);
+
   // Build conversation transcript for Claude
   const transcript = messages
     .map((m, i) => {
@@ -141,18 +176,33 @@ Pre-detected signals:
 - Length trajectory: ${preSignals.messageLengthTrajectory}
 - Monosyllabic after frustration: ${preSignals.monosyllabicAfterFrustration}
 ${input.explicitCsatScore !== null && input.explicitCsatScore !== undefined ? `- Explicit CSAT provided (for reference only, do NOT use in scoring): ${input.explicitCsatScore}` : ''}
+- VADER sentiment — customer overall: ${vader.customer.compound.toFixed(2)} (${vader.customer.trajectory}), first-half: ${vader.customer.firstHalfCompound.toFixed(2)}, second-half: ${vader.customer.secondHalfCompound.toFixed(2)}
+- VADER sentiment — agent overall: ${vader.agent.compound.toFixed(2)}, empathy gap: ${vader.speakerSentimentGap.toFixed(2)} (positive = agent warmer than customer)
+- VADER negative peaks at message indices: ${vader.customer.negativePeakIndices.join(', ') || 'none'}
+- VADER positive peaks at message indices: ${vader.customer.positivePeakIndices.join(', ') || 'none'}
+- Customer emotion profile: dominant=${emotions.customer.overall.dominant} (intensity ${emotions.customer.overall.intensity.toFixed(2)}), frustration=${emotions.customer.frustrationScore.toFixed(2)}, satisfaction=${emotions.customer.satisfactionScore.toFixed(2)}
+- Customer emotion arc: ${emotions.customer.arc.join(' → ') || 'neutral'}
+- Customer emotion shifts: ${emotions.customer.emotionShifts}
+- Agent emotion profile: dominant=${emotions.agent.overall.dominant}, warmth=${emotions.agent.warmthScore.toFixed(2)}, anxiety=${emotions.agent.anxietyScore.toFixed(2)}
 
 Conversation transcript:
 ${transcript}
 
 Analyze ONLY the customer messages for sentiment. The agent/bot messages provide context for understanding customer reactions.`;
 
-  const response = await client.messages.create({
-    model: 'claude-opus-4-5',
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const response = await (client.messages.create({
+    model: 'claude-sonnet-4-6',
     max_tokens: 4096,
-    system: SYSTEM_PROMPT,
+    system: [
+      {
+        type: 'text',
+        text: SYSTEM_PROMPT,
+        cache_control: { type: 'ephemeral' },
+      },
+    ],
     messages: [{ role: 'user', content: userContent }],
-  });
+  } as any)) as Anthropic.Message;
 
   const rawText =
     response.content[0].type === 'text' ? response.content[0].text : '';

@@ -118,6 +118,8 @@ export async function runBatch(options: BatchOptions = {}): Promise<BatchSummary
               keySignalSummary: scored.keySignalSummary,
               explicitCsatPct,
               implicitCsatGap: explicitCsatPct === null,
+              agentEmpathyScore: scored.agentEmpathyScore,
+              agentEmpathyLabel: scored.agentEmpathyLabel,
               agentId: conversation.assignee?.id,
               teamId: conversation.team_assignee_id?.toString(),
               analyzedAt: new Date(),
@@ -140,9 +142,28 @@ export async function runBatch(options: BatchOptions = {}): Promise<BatchSummary
               keySignalSummary: scored.keySignalSummary,
               explicitCsatPct,
               implicitCsatGap: explicitCsatPct === null,
+              agentEmpathyScore: scored.agentEmpathyScore,
+              agentEmpathyLabel: scored.agentEmpathyLabel,
               analyzedAt: new Date(),
             },
           });
+
+          // Re-insert message scores
+          const conv = await prisma.conversation.findUnique({ where: { intercomId: id }, select: { id: true } });
+          if (conv && scored.messageScores.length > 0) {
+            await prisma.messageScore.deleteMany({ where: { conversationId: conv.id } });
+            await prisma.messageScore.createMany({
+              data: scored.messageScores.map(ms => ({
+                conversationId: conv.id,
+                messageIndex: ms.messageIndex,
+                role: ms.role,
+                language: ms.language,
+                scorePct: ms.scorePct,
+                confidence: ms.confidence,
+                signalsJson: ms.signals,
+              })),
+            });
+          }
 
           // Write attributes + tags + alerts (non-blocking)
           writeConversationAttributes(id, scored).catch(console.error);

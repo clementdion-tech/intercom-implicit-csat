@@ -30,12 +30,21 @@ model Conversation {
   keySignalSummary     String?
   explicitCsatPct      Int?
   implicitCsatGap      Boolean  @default(true)
+  agentEmpathyScore  Int?
+  agentEmpathyLabel  String?
   agentId              String?
   teamId               String?
   analyzedAt           DateTime?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
   messageScores        MessageScore[]
+
+  @@index([analyzedAt])
+  @@index([churnRisk])
+  @@index([label])
+  @@index([communicationStyle])
+  @@index([language])
+  @@index([agentId])
 }
 
 model MessageScore {
@@ -49,6 +58,8 @@ model MessageScore {
   confidence     Float?
   signalsJson    Json?
   timestamp      DateTime?
+
+  @@index([conversationId])
 }
 
 model DailySnapshot {

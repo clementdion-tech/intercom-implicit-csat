@@ -72,6 +72,11 @@ canvasRouter.post('/initialize', async (req: Request, res: Response) => {
         repeatFrictionPhrases: [],
         disengagementDetected: false,
         messageScores: [],
+        agentEmpathyScore: existing.agentEmpathyScore ?? 50,
+        agentEmpathyLabel: existing.agentEmpathyLabel ?? 'neutral',
+        agentEmpathySignals: [],
+        agentEmpathyMissed: [],
+        agentEmpathySummary: '',
       };
 
       return res.json(buildCanvas(scored, !existing.implicitCsatGap, existing.explicitCsatPct));

@@ -21,6 +21,7 @@ export const api = {
   conversions: () => apiFetch<ConversionsData>('/api/dashboard/conversions'),
   agents: () => apiFetch<AgentsData>('/api/dashboard/agents'),
   conversations: (params?: Record<string, string>) => apiFetch<ConversationsData>('/api/dashboard/conversations', params),
+  nes: () => apiFetch<NesData>('/api/dashboard/nes'),
 };
 
 // Types
@@ -116,4 +117,16 @@ export interface ConversationRow {
 export interface ConversationsData {
   conversations: ConversationRow[];
   pagination: { total: number; page: number; limit: number; totalPages: number };
+}
+
+export interface NesData {
+  nes: number | null;
+  empathetic: number;
+  neutral: number;
+  unempathetic: number;
+  total: number;
+  empatheticPct: number;
+  neutralPct: number;
+  unempatheticPct: number;
+  avgEmpathyScore: number | null;
 }

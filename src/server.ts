@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import crypto from 'crypto';
 import express from 'express';
 import cors from 'cors';
 import http from 'http';
@@ -33,6 +34,16 @@ app.use('/canvas', canvasRouter);
 
 // Intercom webhook receiver
 app.post('/api/webhook/intercom', async (req, res) => {
+  const secret = process.env.CANVAS_WEBHOOK_SECRET;
+  if (secret) {
+    const sig = req.headers['x-hub-signature'] as string | undefined;
+    const body = JSON.stringify(req.body);
+    const expected = 'sha1=' + crypto.createHmac('sha1', secret).update(body).digest('hex');
+    if (!sig || sig !== expected) {
+      return res.sendStatus(401);
+    }
+  }
+
   const topic = req.body?.topic as string;
 
   // We handle conversation-level events

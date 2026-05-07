@@ -29,6 +29,11 @@ export interface ScoredConversation {
   repeatFrictionPhrases: string[];
   disengagementDetected: boolean;
   messageScores: MessageScore[];
+  agentEmpathyScore: number;
+  agentEmpathyLabel: string;
+  agentEmpathySignals: string[];
+  agentEmpathyMissed: string[];
+  agentEmpathySummary: string;
 }
 
 export interface MessageScore {
@@ -56,6 +61,10 @@ export function normalizeClaudeResponse(raw: Record<string, unknown>): ScoredCon
 
   const churnRisk = String(overall.churn_risk ?? getChurnRiskLabel(scorePct, communicationStyle, burstCount));
   const churnSignals = (overall.churn_signals as string[]) ?? [];
+
+  const empathy = (raw.agent_empathy ?? {}) as Record<string, unknown>;
+  const agentEmpathyScore = clamp(Number(empathy.score_pct ?? 50), 0, 100);
+  const agentEmpathyLabel = agentEmpathyScore >= 70 ? 'empathetic' : agentEmpathyScore >= 40 ? 'neutral' : 'unempathetic';
 
   const messageScores: MessageScore[] = ((raw.message_analysis as Record<string, unknown>[]) ?? [])
     .filter(m => m.role === 'customer')
@@ -98,6 +107,11 @@ export function normalizeClaudeResponse(raw: Record<string, unknown>): ScoredCon
     repeatFrictionPhrases: (behavioral.repeat_friction_phrases as string[]) ?? [],
     disengagementDetected: Boolean(behavioral.disengagement_detected),
     messageScores,
+    agentEmpathyScore,
+    agentEmpathyLabel,
+    agentEmpathySignals: (empathy.signals as string[]) ?? [],
+    agentEmpathyMissed: (empathy.missed_opportunities as string[]) ?? [],
+    agentEmpathySummary: String(empathy.summary ?? ''),
   };
 }
 
