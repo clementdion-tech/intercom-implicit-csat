@@ -13,6 +13,7 @@ export interface BatchOptions {
   dryRun?: boolean;
   concurrency?: number;
   skipRecentDays?: number;
+  fromDate?: Date;
 }
 
 export interface BatchSummary {
@@ -43,14 +44,28 @@ export async function runBatch(options: BatchOptions = {}): Promise<BatchSummary
     const maxConversations = options.limit ?? 500;
     let fetched = 0;
 
+    const fromTs = options.fromDate ? options.fromDate.getTime() / 1000 : null;
+
     // Fetch open conversations first, then closed
     for (const state of ['open', 'closed'] as const) {
       let page = 1;
-      while (fetched < maxConversations) {
+      let hitDateBoundary = false;
+      while (fetched < maxConversations && !hitDateBoundary) {
         const { data, pages } = await listConversations({ page, per_page: perPage, state, order: 'desc', sort: 'updated_at' });
-        conversationIds.push(...data.map(c => c.id));
-        fetched += data.length;
-        if (page >= pages.total_pages || data.length === 0) break;
+        if (data.length === 0) break;
+
+        if (fromTs) {
+          const filtered = data.filter(c => c.updated_at >= fromTs);
+          conversationIds.push(...filtered.map(c => c.id));
+          fetched += filtered.length;
+          // If this page had conversations older than fromDate, stop paginating
+          if (data.some(c => c.updated_at < fromTs)) hitDateBoundary = true;
+        } else {
+          conversationIds.push(...data.map(c => c.id));
+          fetched += data.length;
+        }
+
+        if (page >= pages.total_pages) break;
         page++;
       }
       if (fetched >= maxConversations) break;

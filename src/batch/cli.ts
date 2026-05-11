@@ -10,6 +10,7 @@ async function main() {
   let concurrency: number | undefined;
   let skipRecentDays = 0;
   let isAll = false;
+  let fromDate: Date | undefined;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--conversation-id' && args[i + 1]) {
@@ -26,6 +27,10 @@ async function main() {
       skipRecentDays = parseInt(args[i].split('=')[1]);
     } else if (args[i] === '--skip-recent' && args[i + 1]) {
       skipRecentDays = parseInt(args[++i]);
+    } else if (args[i].startsWith('--from=')) {
+      fromDate = new Date(args[i].split('=')[1]);
+    } else if (args[i] === '--from' && args[i + 1]) {
+      fromDate = new Date(args[++i]);
     }
   }
 
@@ -38,11 +43,12 @@ async function main() {
   else if (isAll) console.log('📦 Mode: ALL conversations');
   else if (limit) console.log(`📦 Limit: ${limit} conversations`);
   else console.log('📦 Processing default batch (up to 500 conversations)');
+  if (fromDate) console.log(`📅 From: ${fromDate.toISOString().slice(0, 10)} onwards`);
   if (skipRecentDays > 0) console.log(`⏭️  Skipping conversations analyzed in the last ${skipRecentDays} day(s)`);
   console.log('─'.repeat(50) + '\n');
 
   try {
-    const summary = await runBatch({ conversationId, limit, dryRun, concurrency, skipRecentDays });
+    const summary = await runBatch({ conversationId, limit, dryRun, concurrency, skipRecentDays, fromDate });
     printBatchSummary(summary, dryRun);
     process.exit(summary.failed > 0 ? 1 : 0);
   } catch (err) {
