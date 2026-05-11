@@ -71,7 +71,7 @@ export async function listConversations(params: {
 }): Promise<{ data: IntercomConversation[]; pages: { total_pages: number; page: number } }> {
   const client = getClient();
   const { data } = await client.get('/conversations', { params });
-  return data;
+  return { data: data.conversations ?? [], pages: data.pages ?? { total_pages: 1, page: 1 } };
 }
 
 export function normalizeMessages(conversation: IntercomConversation): NormalizedMessage[] {
