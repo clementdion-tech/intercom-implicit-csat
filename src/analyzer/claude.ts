@@ -133,7 +133,9 @@ Respond ONLY with a valid JSON object using this exact structure (no markdown, n
 export async function analyzeConversation(
   input: ConversationInput
 ): Promise<ScoredConversation> {
-  const { messages, intercomId } = input;
+  const { messages: rawMessages, intercomId } = input;
+  // Cap transcript length to control token cost — keep last 20 messages (most recent are most predictive)
+  const messages = rawMessages.length > 20 ? rawMessages.slice(-20) : rawMessages;
 
   // Pre-process signals for context
   const preSignals = extractPreSignals(

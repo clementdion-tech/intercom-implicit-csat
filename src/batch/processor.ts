@@ -12,6 +12,7 @@ export interface BatchOptions {
   conversationId?: string;
   dryRun?: boolean;
   concurrency?: number;
+  skipRecentDays?: number;
 }
 
 export interface BatchSummary {
@@ -40,11 +41,11 @@ export async function runBatch(options: BatchOptions = {}): Promise<BatchSummary
   } else {
     const perPage = 50;
     const maxConversations = options.limit ?? 500;
-    let page = 1;
     let fetched = 0;
 
     // Fetch open conversations first, then closed
     for (const state of ['open', 'closed'] as const) {
+      let page = 1;
       while (fetched < maxConversations) {
         const { data, pages } = await listConversations({ page, per_page: perPage, state, order: 'desc', sort: 'updated_at' });
         conversationIds.push(...data.map(c => c.id));
@@ -79,6 +80,18 @@ export async function runBatch(options: BatchOptions = {}): Promise<BatchSummary
       const convStart = Date.now();
       try {
         const conversation = await getConversation(id);
+
+        if (options.skipRecentDays && options.skipRecentDays > 0) {
+          const existing = await prisma.conversation.findUnique({
+            where: { intercomId: id },
+            select: { analyzedAt: true },
+          });
+          const cutoff = new Date(Date.now() - options.skipRecentDays * 24 * 60 * 60 * 1000);
+          if (existing?.analyzedAt && existing.analyzedAt > cutoff) {
+            return; // already fresh, skip
+          }
+        }
+
         const messages = normalizeMessages(conversation);
 
         if (messages.filter(m => m.role === 'user').length === 0) return;

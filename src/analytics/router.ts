@@ -312,19 +312,20 @@ analyticsRouter.get('/dashboard/agents', async (_req: Request, res: Response) =>
   try {
     const conversations = await prisma.conversation.findMany({
       where: { scorePct: { not: null }, agentId: { not: null } },
-      select: { agentId: true, scorePct: true, arc: true, burstCount: true, conversionDeltaPct: true },
+      select: { agentId: true, scorePct: true, arc: true, burstCount: true, conversionDeltaPct: true, agentEmpathyScore: true },
     });
 
-    const byAgent = new Map<string, { scores: number[]; arcs: string[]; bursts: number[] }>();
+    const byAgent = new Map<string, { scores: number[]; arcs: string[]; bursts: number[]; empathyScores: number[] }>();
 
     for (const c of conversations) {
       if (!byAgent.has(c.agentId!)) {
-        byAgent.set(c.agentId!, { scores: [], arcs: [], bursts: [] });
+        byAgent.set(c.agentId!, { scores: [], arcs: [], bursts: [], empathyScores: [] });
       }
       const entry = byAgent.get(c.agentId!)!;
       entry.scores.push(c.scorePct!);
       if (c.arc) entry.arcs.push(c.arc);
       entry.bursts.push(c.burstCount ?? 0);
+      if (c.agentEmpathyScore != null) entry.empathyScores.push(c.agentEmpathyScore);
     }
 
     const agents = Array.from(byAgent.entries())
@@ -335,6 +336,9 @@ analyticsRouter.get('/dashboard/agents', async (_req: Request, res: Response) =>
         rescueRate: Math.round((data.arcs.filter(a => a === 'rescued').length / data.arcs.length) * 100),
         dropRate: Math.round((data.arcs.filter(a => a === 'declined').length / data.arcs.length) * 100),
         burstEscalationRate: Math.round((data.bursts.filter(b => b > 0).length / data.bursts.length) * 100),
+        avgEmpathyScore: data.empathyScores.length > 0
+          ? Math.round(data.empathyScores.reduce((a, b) => a + b, 0) / data.empathyScores.length)
+          : null,
       }))
       .sort((a, b) => b.conversationCount - a.conversationCount);
 
@@ -438,6 +442,153 @@ analyticsRouter.get('/dashboard/nes', async (_req: Request, res: Response) => {
     res.json({ nes, empathetic, neutral, unempathetic, total, empatheticPct, neutralPct, unempatheticPct, avgEmpathyScore });
   } catch (err) {
     res.status(500).json({ error: 'Failed to load NES' });
+  }
+});
+
+// GET /api/dashboard/trends?period=7d|30d|90d|1y
+analyticsRouter.get('/dashboard/trends', async (req: Request, res: Response) => {
+  try {
+    const period = (req.query.period as string) ?? '30d';
+    const days = period === '7d' ? 7 : period === '90d' ? 90 : period === '1y' ? 365 : 30;
+
+    const since = new Date();
+    since.setDate(since.getDate() - days);
+
+    let points: { date: string; avgScorePct: number; totalConversations: number }[] = [];
+
+    const snapshots = await prisma.dailySnapshot.findMany({
+      where: { date: { gte: since } },
+      orderBy: { date: 'asc' },
+      select: { date: true, avgScorePct: true, totalConversations: true },
+    });
+
+    if (snapshots.length >= 3) {
+      points = snapshots.map(s => ({
+        date: s.date.toISOString().slice(0, 10),
+        avgScorePct: Math.round(s.avgScorePct),
+        totalConversations: s.totalConversations,
+      }));
+    } else {
+      // Fallback: group Conversation records by date
+      const conversations = await prisma.conversation.findMany({
+        where: { analyzedAt: { gte: since }, scorePct: { not: null } },
+        select: { analyzedAt: true, scorePct: true },
+        orderBy: { analyzedAt: 'asc' },
+      });
+
+      const grouped = new Map<string, { total: number; count: number }>();
+      for (const c of conversations) {
+        if (!c.analyzedAt) continue;
+        const dateKey = c.analyzedAt.toISOString().slice(0, 10);
+        if (!grouped.has(dateKey)) grouped.set(dateKey, { total: 0, count: 0 });
+        const entry = grouped.get(dateKey)!;
+        entry.total += c.scorePct!;
+        entry.count++;
+      }
+
+      points = Array.from(grouped.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, data]) => ({
+          date,
+          avgScorePct: Math.round(data.total / data.count),
+          totalConversations: data.count,
+        }));
+    }
+
+    // Compute summary
+    let summary: { avg: number | null; min: number | null; max: number | null; trend: string } = {
+      avg: null, min: null, max: null, trend: 'stable',
+    };
+
+    if (points.length > 0) {
+      const scores = points.map(p => p.avgScorePct);
+      const avg = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
+      const min = Math.min(...scores);
+      const max = Math.max(...scores);
+
+      let trend = 'stable';
+      if (points.length >= 2) {
+        const half = Math.floor(points.length / 2);
+        const firstHalf = scores.slice(0, half);
+        const secondHalf = scores.slice(points.length - half);
+        const firstAvg = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+        const secondAvg = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+        const diff = secondAvg - firstAvg;
+        if (diff > 3) trend = 'improving';
+        else if (diff < -3) trend = 'declining';
+      }
+
+      summary = { avg, min, max, trend };
+    }
+
+    res.json({ period, points, summary });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load trends' });
+  }
+});
+
+// GET /api/dashboard/mom (month-over-month)
+analyticsRouter.get('/dashboard/mom', async (_req: Request, res: Response) => {
+  try {
+    const now = new Date();
+
+    const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const thisMonthLabel = thisMonthStart.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+    const lastMonthLabel = lastMonthStart.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+    const [currentAgg, previousAgg, currentChurnHigh, previousChurnHigh] = await Promise.all([
+      prisma.conversation.aggregate({
+        _avg: { scorePct: true, agentEmpathyScore: true },
+        _count: { id: true },
+        where: { analyzedAt: { gte: thisMonthStart }, scorePct: { not: null } },
+      }),
+      prisma.conversation.aggregate({
+        _avg: { scorePct: true, agentEmpathyScore: true },
+        _count: { id: true },
+        where: { analyzedAt: { gte: lastMonthStart, lt: lastMonthEnd }, scorePct: { not: null } },
+      }),
+      prisma.conversation.count({
+        where: { analyzedAt: { gte: thisMonthStart }, churnRisk: 'high' },
+      }),
+      prisma.conversation.count({
+        where: { analyzedAt: { gte: lastMonthStart, lt: lastMonthEnd }, churnRisk: 'high' },
+      }),
+    ]);
+
+    const currentAvgScore = currentAgg._avg.scorePct != null ? Math.round(currentAgg._avg.scorePct) : null;
+    const previousAvgScore = previousAgg._avg.scorePct != null ? Math.round(previousAgg._avg.scorePct) : null;
+    const currentAvgEmpathy = currentAgg._avg.agentEmpathyScore != null ? Math.round(currentAgg._avg.agentEmpathyScore) : null;
+    const previousAvgEmpathy = previousAgg._avg.agentEmpathyScore != null ? Math.round(previousAgg._avg.agentEmpathyScore) : null;
+    const currentTotal = currentAgg._count.id;
+    const previousTotal = previousAgg._count.id;
+
+    res.json({
+      current: {
+        label: thisMonthLabel,
+        avgScorePct: currentAvgScore,
+        total: currentTotal,
+        avgEmpathy: currentAvgEmpathy,
+        churnHigh: currentChurnHigh,
+      },
+      previous: {
+        label: lastMonthLabel,
+        avgScorePct: previousAvgScore,
+        total: previousTotal,
+        avgEmpathy: previousAvgEmpathy,
+        churnHigh: previousChurnHigh,
+      },
+      delta: {
+        scorePct: currentAvgScore != null && previousAvgScore != null ? currentAvgScore - previousAvgScore : null,
+        total: currentTotal - previousTotal,
+        avgEmpathy: currentAvgEmpathy != null && previousAvgEmpathy != null ? currentAvgEmpathy - previousAvgEmpathy : null,
+        churnHigh: currentChurnHigh - previousChurnHigh,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to load month-over-month data' });
   }
 });
 
